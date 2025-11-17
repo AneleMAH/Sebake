@@ -1,0 +1,112 @@
+Sub AOD()
+    Dim xlApp As Object
+    Dim xlBook As Object
+    Dim ws As Object
+    Dim i As Long
+    Dim wordDoc As Document
+    Dim templatePath As String
+    Dim outputPath As String
+    Dim formattedAmount As String
+    Dim formattedDays As String
+    Dim formattedAddress As String
+    Dim safeCompany As String
+    Dim fileNameBase As String
+    Dim pdfFilePath As String
+    
+    ' === File paths ===
+    templatePath = "C:\Users\Matsi\Desktop\gitMila\Clients\Sebake\Automation\Templates\AOD.docx"
+    outputPath = "C:\Users\Matsi\Desktop\gitMila\Clients\Sebake\CLIENTS\Automation client\"
+    
+    ' === Open Excel ===
+    Set xlApp = CreateObject("Excel.Application")
+    xlApp.Visible = False
+    Set xlBook = xlApp.Workbooks.Open("C:\Users\Matsi\Desktop\gitMila\Clients\Sebake\Automation\CLIENT INFORMATION.xlsx")
+    Set ws = xlBook.Sheets(1)
+    
+    ' === Extract template name (no extension) ===
+    fileNameBase = Mid(templatePath, InStrRev(templatePath, "\") + 1)
+    fileNameBase = Left(fileNameBase, InStrRev(fileNameBase, ".") - 1)
+    
+    ' === Loop through rows ===
+    For i = 2 To ws.Cells(ws.Rows.Count, 1).End(-4162).Row  ' -4162 = xlUp
+        ' Open Word template
+        Set wordDoc = Documents.Open(templatePath)
+        
+        ' === Format numeric values ===
+        If IsNumeric(ws.Cells(i, 7).Value) Then
+            formattedAmount = "R" & Format(ws.Cells(i, 7).Value, "#,##0")
+        Else
+            formattedAmount = ws.Cells(i, 7).Value
+        End If
+        
+        If IsNumeric(ws.Cells(i, 8).Value) Then
+            formattedDays = Format(ws.Cells(i, 8).Value, "#,##0")
+        Else
+            formattedDays = ws.Cells(i, 8).Value
+        End If
+        
+        ' === Format address (commas ? new lines) ===
+        formattedAddress = ws.Cells(i, 4).Value
+        formattedAddress = Replace(formattedAddress, ",", vbCrLf)
+        
+        ' === Clean company name for file name ===
+        safeCompany = Trim(ws.Cells(i, 3).Value)
+        safeCompany = Replace(safeCompany, " ", "_")
+        safeCompany = Replace(safeCompany, "/", "-")
+        
+        ' === Replace placeholders ===
+        With wordDoc.Content.Find
+            .Text = "<<ClientName>>"
+            .Replacement.Text = ws.Cells(i, 1).Value
+            .Execute Replace:=2
+            
+            .Text = "<<ClientEmail>>"
+            .Replacement.Text = ws.Cells(i, 2).Value
+            .Execute Replace:=2
+            
+            .Text = "<<CompanyName>>"
+            .Replacement.Text = ws.Cells(i, 3).Value
+            .Execute Replace:=2
+            
+            .Text = "<<CompanyAddress>>"
+            .Replacement.Text = formattedAddress
+            .Execute Replace:=2
+            
+            .Text = "<<CompanyNumber>>"
+            .Replacement.Text = ws.Cells(i, 5).Value
+            .Execute Replace:=2
+            
+            .Text = "<<ID>>"
+            .Replacement.Text = ws.Cells(i, 6).Value
+            .Execute Replace:=2
+            
+            .Text = "<<AmountOwed>>"
+            .Replacement.Text = formattedAmount
+            .Execute Replace:=2
+            
+            .Text = "<<PaymentDays>>"
+            .Replacement.Text = formattedDays
+            .Execute Replace:=2
+        End With
+        
+        ' === Build PDF file path ===
+        pdfFilePath = outputPath & fileNameBase & "_" & safeCompany & ".pdf"
+        
+        ' === Save directly as PDF ===
+        wordDoc.ExportAsFixedFormat OutputFileName:=pdfFilePath, _
+            ExportFormat:=17 ' 17 = wdExportFormatPDF
+        
+        ' === Close document without saving Word version ===
+        wordDoc.Close SaveChanges:=False
+    Next i
+    
+    ' === Cleanup ===
+    xlBook.Close SaveChanges:=False
+    xlApp.Quit
+    Set xlBook = Nothing
+    Set xlApp = Nothing
+    
+    MsgBox "AOD Created", vbInformation
+End Sub
+
+
